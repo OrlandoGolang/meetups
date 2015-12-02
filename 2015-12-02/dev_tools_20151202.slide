@@ -74,7 +74,8 @@ gofmt -s also makes some simplifications:
 * Way, way more info
 
 "The Cultural Evolution of gofmt"
-.link https://talks.golang.org/2015/gofmt-en.slide#1
+
+.link https://talks.golang.org/2015/gofmt-en.slide
 
 
 * golint
@@ -303,6 +304,7 @@ Watches all .go files in a directory and invokes go build if a file is changed.
 Crazy simple, crazy useful.
 
 Not a standard go team supported tool, get it at:
+
 .link https://github.com/githubnemo/compiledaemon
 
 
