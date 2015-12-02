@@ -1,0 +1,441 @@
+Golang tools that win
+Orlando Golang meetup
+19:00 2 Dec 2015
+
+Mike Sardo
+michael.j.sardo@gmail.com
+
+
+* Intro
+
+Go comes with a lot of simple but effective tools that make your life easier.
+
+Let's talk about a few of them:
+
+- Code quality: gofmt, golint, go vet
+- Documentation: godoc
+- Workflow: goimports, gorename, CompileDaemon
+- Testing: go [test|run|build|install] -race
+- Sharing: The Go Playground, present
+
+
+* gofmt
+
+No more spacing or bracing arguments!
+
+Automatically formats code with:
+
+  gofmt -w <foo.go or a directory>
+
+Why?
+
+- Diffs over gofmt'd code are always just the real changes, not styling
+- Easier to read, write and maintain
+- Makes automated changes to a code base safe(r)
+
+
+* Automated transformations
+
+gofmt -r allows you to rewrite code with pattern expressions
+
+Example: a change to the go codebase generated with just:
+
+  gofmt -r 'bytes.Compare(a, b) == 0 -> bytes.Equal(a, b)'
+  gofmt -r 'bytes.Compare(a, b) != 0 -> !bytes.Equal(a, b)'
+
+.link https://code.google.com/p/go/source/detail?r=ae4e014e0b77
+
+
+* Automated simplifications
+
+gofmt -s also makes some simplifications:
+
+  An array, slice, or map composite literal of the form:
+    []T{T{}, T{}}
+  will be simplified to:
+    []T{{}, {}}
+
+  A slice expression of the form:
+    s[a:len(s)]
+  will be simplified to:
+    s[a:]
+
+  A range of the form:
+    for x, _ = range v {...}
+  will be simplified to:
+    for x = range v {...}
+
+  A range of the form:
+    for _ = range v {...}
+  will be simplified to:
+    for range v {...}
+
+
+* Way, way more info
+
+"The Cultural Evolution of gofmt"
+
+.link https://talks.golang.org/2015/gofmt-en.slide
+
+
+* golint
+
+Suggests style improvements according to _Effective_Go_ at: 
+
+.link https://golang.org/doc/effective_go.html
+
+and also..
+
+.link https://github.com/golang/go/wiki/CodeReviewComments
+
+Example output:
+
+  [msardo@nukacola github.com/OrlandoGolang/ellie]$ golint .
+  config.go:4:2: don't use ALL_CAPS in Go names; use CamelCase
+  config.go:4:2: exported const DEFAULT_WORKER_COUNT should have comment (or a comment on this block) or be unexported
+  config.go:5:2: don't use ALL_CAPS in Go names; use CamelCase
+  config.go:8:1: comment on exported var AppConfig should be of the form "AppConfig ..."
+  state.go:11:2: comment on exported var WorkerStarted should be of the form "WorkerStarted ..."
+  state.go:13:2: exported var WorkerSleeping should have comment or be unexported
+  state.go:15:2: comment on exported var TaskScheduled should be of the form "TaskScheduled ..."
+  tasks.go:74:1: comment on exported method TaskQueue.Len should be of the form "Len ..."
+  tasks.go:134:1: comment on exported function Dequeue should be of the form "Dequeue ..."
+
+
+* go vet
+
+Attempts to find suspicious code that the compiler might not catch, like:
+
+- Unused results of certain function calls
+- Unreachable code
+- Incorrect uses of range loop variables in closures
+- Locks that are erroneously passed by value
+- Misuse of struct encoding tags for json, xml
+
+Example output:
+
+  [msardo@nukacola /usr/lib/golang/src]$ go tool vet .
+  encoding/xml/marshal.go:95: method MarshalXML(e *Encoder, start StartElement) error should have signature MarshalXML(*xml.Encoder, xml.StartElement) error
+  net/http/transfer.go:215: net/http/internal.FlushAfterChunkWriter composite literal uses unkeyed fields
+  regexp/backtrack.go:257: unreachable code
+  runtime/hashmap.go:292: hash might be too small for shift of 56
+  runtime/lfstack.go:16: println call ends with newline
+
+
+
+* gofmt vs golint vs go vet
+
+- gofmt corrects *format*
+- golint suggests *style*
+- go vet checks for *correctness*
+
+gofmt is safe, and even suggested, for code review and build toolchains
+
+golint and go vet are not! Both can and do return false positives. From the golint authors:
+
+  ...this tool is not, and will never be, trustworthy enough for its
+  suggestions to be enforced automatically, for example as part
+  of a build process.
+
+
+* godoc
+
+Go is self-documenting and takes documentation very seriously
+
+Similar to Python's Docstring or Javascript's JSDoc but much simpler
+
+Follow simple conventions when commenting code and godoc will generate and serve great documentation.
+
+
+* Package comments
+
+- Every package should have a package comment immediately preceding the *package* clause
+- Should start with a sentence with form "Package <package name> ..."
+- Only one .go file needs a package comment for multi-file packages, your choice
+- Or create a doc.go that contains only the package comment and *package* clause
+- First sentence will be used for abbreviated description
+
+It can be simple:
+
+  // Package sort provides primitives for sorting slices and user-defined
+  // collections.
+  package sort
+
+or hella long:
+
+.link https://golang.org/src/encoding/gob/doc.go
+
+
+* All other comments
+
+- All exported types, variables, constants or functions should have a comment
+- A full sentence that begins with the name of the element being described
+- Directly preceding the element's declaration with no blank lines between
+- Additional sentences are fine with godoc, but beware that other tools may use just the first line or sentence
+
+  // Fprint formats using the default formats for its operands and writes to w.
+  // Spaces are added between operands when neither is a string.
+  // It returns the number of bytes written and any write error encountered.
+  func Fprint(w io.Writer, a ...interface{}) (n int, err error) {
+
+
+* Using godoc
+
+From the command line:
+
+  $ godoc net/http FileServer
+
+  func FileServer(root FileSystem) Handler
+      FileServer returns a handler that serves HTTP requests with the contents
+      of the file system rooted at root.
+
+      To use the operating system's file system implementation, use http.Dir:
+
+    http.Handle("/", http.FileServer(http.Dir("/tmp")))
+
+      As a special case, the returned file server redirects any request ending
+      in "/index.html" to the same path, without the final "index.html".
+
+
+* Using godoc
+
+See the source with -src:
+
+  $ godoc -src net/http FileServer
+
+  // FileServer returns a handler that serves HTTP requests
+  // with the contents of the file system rooted at root.
+  //
+  // To use the operating system's file system implementation,
+  // use http.Dir:
+  //
+  //     http.Handle("/", http.FileServer(http.Dir("/tmp")))
+  //
+  // As a special case, the returned file server redirects any request
+  // ending in "/index.html" to the same path, without the final
+  // "index.html".
+  func FileServer(root FileSystem) Handler {
+      return &fileHandler{root}
+  }
+
+
+* Using godoc
+
+As a server:
+
+  godoc -http=:6060
+
+Then localhost:6060/pkg will present a searchable version of
+
+.link https://golang.org/pkg/
+
+for code and packages installed on your workstation.
+
+godoc.org will generate and serve documentation for projects hosted on Bitbucket, GitHub, Google Project Hosting and Launchpad
+
+.link https://godoc.org/github.com/OrlandoGolang/ellie
+
+
+* goimports
+
+Fixes your import statements. Use it the same way as gofmt.
+
+Turns this:
+
+  func main() {
+       f, _ := os.Open("foo")
+       io.Copy(os.Stdout, f)
+  }
+
+Into this:
+
+  import (
+    "io"
+    "os"
+  )
+
+  func main() {
+    f, _ := os.Open("foo")
+    log.Println("opened file")
+    io.Copy(os.Stdout, f)
+  }
+
+
+* gorename
+
+Safely renames constants, functions, variables and types
+
+- Type-aware and workspace-aware, so it won't rename the wrong thing
+- Will not make changes that breaks code
+- Specify changes to or almost anywhere within a package, file, method, function
+- Pay attention to scope of changes, test with -dryrun first!
+
+Examples:
+
+  $ gorename -from '"bytes".Buffer.Len' -to Size
+
+ 
+  $ gorename -from '"github.com/satori/go.uuid".NewV4' -to NewV5
+
+
+* gorename expressions
+
+  $ gorename -help
+
+  ....
+
+  A legal -from query has one of the following forms:
+
+    "encoding/json".Decoder.Decode        method of package-level named type
+    (*"encoding/json".Decoder).Decode     ditto, alternative syntax
+    "encoding/json".Decoder.buf           field of package-level named struct type
+    "encoding/json".HTMLEscape            package member (const, func, var, type)
+    "encoding/json".Decoder.Decode::x     local object x within a method
+    "encoding/json".HTMLEscape::x         local object x within a function
+    "encoding/json"::x                    object x anywhere within a package
+    json.go::x                            object x within file json.go
+
+    For methods, the parens and '*' on the receiver type are both optional.
+
+
+* CompileDaemon
+
+Watches all .go files in a directory and invokes go build if a file is changed.
+
+Crazy simple, crazy useful.
+
+Not a standard go team supported tool, get it at:
+
+.link https://github.com/githubnemo/compiledaemon
+
+
+* Data race detection
+
+A data race occurs when two goroutines access the same variable concurrently and at least one of the accesses is a write.
+
+Compilers assume race-free programs. Data races can be benign but are hard to debug when they cause problems.
+
+Example data race in a loop counter:
+
+  func main() {
+    var wg sync.WaitGroup
+    wg.Add(5)
+    for i := 0; i < 5; i++ {
+      go func() {
+        fmt.Println(i) // Not the 'i' you are looking for.
+        wg.Done()
+      }()
+    }
+    wg.Wait()
+  }
+
+
+* Using -race
+
+Luckily, Go comes with a builtin data race detector. To use it:
+
+  $ go test -race mypkg    // to test the package
+  $ go run -race mysrc.go  // to run the source file
+  $ go build -race mycmd   // to build the command
+  $ go install -race mypkg // to install the package
+
+Can only find races in code paths that are executed, so you need good tests or a realistic workload.
+
+-race has been used to find 70+ bugs in Go's standard library.
+
+
+* Example bad code
+
+  package main
+
+  func main() {
+      m := make(map[int]int)
+      go func() {
+          m[1] = 1
+      }()
+      m[2] = 2
+  }
+
+
+* Example -race report
+
+  WARNING: DATA RACE
+  Write by goroutine 5:
+    runtime.mapassign1()
+        runtime/hashmap.go:411 +0x0
+    main.main.func1()
+        race.go:6 +0x60
+
+  Previous write by main goroutine:
+    runtime.mapassign1()
+        runtime/hashmap.go:411 +0x0
+    main.main()
+        race.go:8 +0xb6
+
+  Goroutine 5 (running) created at:
+    main.main()
+        race.go:7 +0x76
+
+
+* The Go Playground
+
+A web service that compiles and executes arbitrary Go code and returns the program output. 
+
+An editor frontend is avaliable at:
+
+.link https://play.golang.org
+
+Click "Share" to generate a sharable link and share your code:
+
+.link https://play.golang.org/p/1YSQ3htMqT 
+
+or whatever:
+
+.link https://play.golang.org/p/inHn4E5Scm
+
+
+* present
+
+The somehow Go-approved way of talking about Go in public, even used to create this slideshow.
+
+The slides are generated from text with some formatting in a .slide or .article file. Here's the code for the previous slide:
+
+  * The Go Playground
+
+  A web service that compiles and executes arbitrary Go code and returns the program output. 
+
+  An editor frontend is avaliable at:
+
+  .link https://play.golang.org
+
+  Click "Share" to generate a sharable link and share your code:
+
+  .link https://play.golang.org/p/1YSQ3htMqT 
+
+  or whatever:
+
+  .link https://play.golang.org/p/inHn4E5Scm
+
+
+* How to get these tools
+
+These should come with any recent go installation by default, no installation should be needed:
+
+- gofmt
+- go vet
+- go [test|run|build|install] -race
+
+
+* How to get these tools
+
+The rest might have distro-specifc packages, but are also go get-able:
+
+  go get github.com/golang/lint/golint
+
+  go get golang.org/x/tools/godoc
+
+  go get golang.org/x/tools/cmd/goimports
+
+  go get golang.org/x/tools/cmd/gorename
+
+  go get golang.org/x/tools/cmd/present
